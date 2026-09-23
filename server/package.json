@@ -1,0 +1,16 @@
+{
+  "name": "schedule-chatbot-server",
+  "version": "1.0.0",
+  "description": "Thai schedule-only chatbot with grounded, deterministic answers",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  }
+}
