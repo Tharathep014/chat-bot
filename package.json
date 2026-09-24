@@ -2,6 +2,7 @@
   "name": "schedule-chatbot",
   "version": "2.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "setup": "npm --prefix server ci && npm --prefix client ci",
     "dev": "node scripts/dev.mjs",
