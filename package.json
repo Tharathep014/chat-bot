@@ -8,7 +8,8 @@
     "dev": "node scripts/dev.mjs",
     "build": "npm --prefix client run build",
     "start": "npm --prefix server start",
-    "test": "npm --prefix server test"
+    "test": "npm --prefix server test",
+    "supabase:seed": "node scripts/supabase-seed.mjs"
   },
   "engines": { "node": ">=20" }
 }

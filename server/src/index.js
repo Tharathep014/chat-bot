@@ -1,6 +1,6 @@
 import { config } from 'dotenv';
 import { fileURLToPath } from 'node:url';
-import { loadSchedule } from './schedule.js';
+import { scheduleStoreFromEnv } from './store.js';
 import { createApp } from './app.js';
 
 config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
@@ -9,9 +9,16 @@ const host = process.env.HOST || '127.0.0.1';
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT must be an integer between 1 and 65535.');
 }
-const app = createApp({ schedule: loadSchedule() });
+const store = scheduleStoreFromEnv();
+// Load once at startup so a wrong Supabase setting is reported immediately.
+try {
+  await store.get();
+} catch (error) {
+  console.error(`Cannot load schedule from ${store.source}: ${error.message}`);
+}
+const app = createApp({ store });
 const server = app.listen(port, host, () => {
-  console.log(`Schedule chatbot ready: http://${host}:${port} (table-only, no API key required)`);
+  console.log(`Schedule chatbot ready: http://${host}:${port} (data: ${store.source === 'supabase' ? 'Supabase' : 'server/data/schedule.json'})`);
 });
 server.on('error', (error) => {
   console.error(error.code === 'EADDRINUSE'

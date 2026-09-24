@@ -2,12 +2,24 @@ import express from 'express';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { answerQuestion } from './answer.js';
-import { dataWarnings, validateSchedule } from './schedule.js';
+import { dataWarnings } from './schedule.js';
+import { createScheduleStore } from './store.js';
 
 const defaultClientDir = fileURLToPath(new URL('../../client/dist/', import.meta.url));
+const UNAVAILABLE = 'โหลดข้อมูลตารางสอนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
 
-export function createApp({ schedule, clientDir = defaultClientDir, now } = {}) {
-  validateSchedule(schedule);
+// Pass `schedule` (a fixed object) or `store` (e.g. Supabase-backed).
+export function createApp({ schedule, store, clientDir = defaultClientDir, now } = {}) {
+  const scheduleStore = store || createScheduleStore({ schedule });
+  const loadOr503 = async (res) => {
+    try {
+      return await scheduleStore.get();
+    } catch (error) {
+      console.error('Schedule load failed:', error.message);
+      res.status(503).json({ error: UNAVAILABLE });
+      return null;
+    }
+  };
   const app = express();
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
@@ -20,12 +32,16 @@ export function createApp({ schedule, clientDir = defaultClientDir, now } = {}) 
   });
   app.use(express.json({ limit: '64kb' }));
 
-  app.get('/api/health', (_req, res) => res.json({
-    status: 'ok', mode: 'schedule-only', dataWarnings: dataWarnings(schedule),
-  }));
-  app.get('/api/schedule', (_req, res) => res.json(schedule));
+  app.get('/api/health', async (_req, res) => {
+    const schedule = await loadOr503(res);
+    if (schedule) res.json({ status: 'ok', mode: 'schedule-only', dataSource: scheduleStore.source, dataWarnings: dataWarnings(schedule) });
+  });
+  app.get('/api/schedule', async (_req, res) => {
+    const schedule = await loadOr503(res);
+    if (schedule) res.json(schedule);
+  });
 
-  app.post('/api/chat', (req, res) => {
+  app.post('/api/chat', async (req, res) => {
     if (!req.is('application/json')) {
       return res.status(415).json({ error: 'กรุณาส่งข้อมูลแบบ application/json' });
     }
@@ -46,6 +62,8 @@ export function createApp({ schedule, clientDir = defaultClientDir, now } = {}) 
       || history.reduce((sum, item) => sum + item.text.length, 0) > 32000) {
       return res.status(400).json({ error: 'ประวัติแชทไม่ถูกต้องหรือยาวเกินไป กรุณาเริ่มบทสนทนาใหม่' });
     }
+    const schedule = await loadOr503(res);
+    if (!schedule) return undefined;
     const result = answerQuestion(schedule, message.trim(), history, now ? { now: now() } : {});
     return res.json(result);
   });
